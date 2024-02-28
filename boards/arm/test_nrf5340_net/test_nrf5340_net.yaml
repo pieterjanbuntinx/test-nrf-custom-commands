@@ -1,0 +1,13 @@
+# Copyright (c) 2023 Nordic Semiconductor ASA
+# SPDX-License-Identifier: Apache-2.0
+
+identifier: test_nrf5340_net
+name: test_NRF5340_net
+type: mcu
+arch: arm
+ram: 64
+flash: 256
+toolchain:
+  - zephyr
+  - gnuarmemb
+  - xtools
