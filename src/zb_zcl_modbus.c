@@ -21,22 +21,23 @@
  *    contributors may be used to endorse or promote products derived from this
  *    software without specific prior written permission.
  *
- * 3. This software, with or without modification, must only be used with a Nordic
- *    Semiconductor ASA integrated circuit.
+ * 3. This software, with or without modification, must only be used with a
+ * Nordic Semiconductor ASA integrated circuit.
  *
- * 4. Any software provided in binary form under this license must not be reverse
- *    engineered, decompiled, modified and/or disassembled.
+ * 4. Any software provided in binary form under this license must not be
+ * reverse engineered, decompiled, modified and/or disassembled.
  *
- * THIS SOFTWARE IS PROVIDED BY NORDIC SEMICONDUCTOR ASA "AS IS" AND ANY EXPRESS OR
- * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY, NONINFRINGEMENT, AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL NORDIC SEMICONDUCTOR ASA OR CONTRIBUTORS BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
- * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
- * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR
- * TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
- * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * THIS SOFTWARE IS PROVIDED BY NORDIC SEMICONDUCTOR ASA "AS IS" AND ANY EXPRESS
+ * OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+ * OF MERCHANTABILITY, NONINFRINGEMENT, AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL NORDIC SEMICONDUCTOR ASA OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
  */
 /* PURPOSE: ZCL Modbus cluster specific commands handling
  */
@@ -60,8 +61,6 @@ LOG_MODULE_REGISTER(zcl_modbus, LOG_LEVEL_INF);
 
 K_FIFO_DEFINE(fifo);
 
-static int currentFifoSize = 0;
-
 #define SEND_TIMEOUT  1000
 #define MAX_FIFO_SIZE 10
 
@@ -77,13 +76,7 @@ static zb_ret_t check_value_modbus_client(zb_uint16_t attr_id, zb_uint8_t endpoi
 zb_bool_t zb_zcl_process_modbus_specific_commands_srv(zb_uint8_t param);
 zb_bool_t zb_zcl_process_modbus_specific_commands_cli(zb_uint8_t param);
 
-void                                 zb_zcl_handleModbusCommand(zb_uint8_t param, modbus_cmd_resp_queue_data_t* fifo_data);
-void                                 handleNextFifoItem(zb_uint8_t param);
-static modbus_cmd_resp_queue_data_t* allocFifoData();
-static void                          freeFifoData(modbus_cmd_resp_queue_data_t* fifo_data);
-
-modbus_cmd_resp_queue_data_t fifo_data_arr[MAX_FIFO_SIZE]   = {0};
-bool                         fifo_data_usage[MAX_FIFO_SIZE] = {0};
+void zb_zcl_handleModbusCommand(zb_uint8_t param, modbus_cmd_resp_queue_data_t* fifo_data);
 
 void zb_zcl_modbus_init_server() {
     zb_zcl_add_cluster_handlers(ZB_ZCL_CLUSTER_ID_MODBUS, ZB_ZCL_CLUSTER_SERVER_ROLE, check_value_modbus_server, (zb_zcl_cluster_write_attr_hook_t)NULL, zb_zcl_process_modbus_specific_commands_srv);
@@ -131,9 +124,6 @@ static zb_ret_t check_value_modbus_client(zb_uint16_t attr_id, zb_uint8_t endpoi
     return ret;
 }
 
-static void cb(zb_uint8_t param) {
-}
-
 static void json_cmd_handler(zb_uint8_t param, zb_zcl_modbus_addr_t* addr) {
     zb_zcl_parse_status_t status;
 
@@ -143,7 +133,6 @@ static void json_cmd_handler(zb_uint8_t param, zb_zcl_modbus_addr_t* addr) {
         LOG_INF("Received");
     }
 
-end:
     TRACE_MSG(TRACE_ZCL1, "< json_cmd_handler", (FMT__0));
 }
 
@@ -187,6 +176,7 @@ zb_bool_t zb_zcl_process_modbus_specific_commands(zb_uint8_t param) {
         processed = ZB_FALSE;
         break;
     }
+    LOG_DBG("received cmd with id: %i", main_addr.cmd_id);
 
     TRACE_MSG(TRACE_ZCL1, "< zb_zcl_process_modbus_specific_commands: processed %d", (FMT__D, processed));
 
@@ -240,4 +230,12 @@ void zb_zcl_modbus_send_json_command_cmd(zb_bufid_t buffer, const zb_addr_u* dst
     }
 
     TRACE_MSG(TRACE_ZCL3, "< zb_zcl_modbus_send_json_cmd", (FMT__0));
+}
+
+void zb_zcl_modbus_test_send_fixed(zb_bufid_t buffer, const zb_addr_u* dst_addr, zb_uint8_t dst_addr_mode, zb_uint8_t dst_ep, zb_uint8_t ep, zb_uint16_t prof_id, zb_uint8_t def_resp, zb_callback_t cb) {
+    zb_uint8_t*   ptr    = ZB_ZCL_START_PACKET_REQ(buffer) ZB_ZCL_CONSTRUCT_SPECIFIC_COMMAND_REQ_FRAME_CONTROL(ptr, (def_resp)) ZB_ZCL_CONSTRUCT_COMMAND_HEADER_REQ(ptr, ZB_ZCL_GET_SEQ_NUM(), (ZB_ZCL_CMD_MODBUS_JSON_COMMAND_REQ_ID));
+    const uint8_t data[] = {0x03, 0x01, 0x00, 0x00, 0x04};
+    ZB_ZCL_PACKET_PUT_DATA8(ptr, (sizeof(data)));
+    ZB_ZCL_PACKET_PUT_DATA_N(ptr, data, sizeof(data));
+    zb_zcl_finish_and_send_packet(buffer, ptr, dst_addr, dst_addr_mode, dst_ep, ep, prof_id, ZB_ZCL_CLUSTER_ID_LEVEL_CONTROL, cb);
 }
