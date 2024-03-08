@@ -435,6 +435,7 @@ void main(void) {
 
     int count = 0;
     while (1) {
+        printk("Print Main loop\n");
         k_msleep(1000);
     }
 }
